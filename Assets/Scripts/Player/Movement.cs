@@ -9,14 +9,19 @@ public class Movement : MonoBehaviour
     private SpriteRenderer sprite;
     private Vector2 direction;
     private Vector2 lastDirection = Vector2.zero;
-    
+
     // Movimento
-    public float speed;
+    public float speed = 5f;
+    public float airControlSpeed = 0.5f; // Menor velocidade de controle no ar
 
     // Pulo
-    public float JumpForce;
+    public float jumpForce = 10f;
     private bool isJumping;
     private bool doubleJump;
+
+    // Ajustes de física
+    public float fallMultiplier = 2.5f;
+    public float lowJumpMultiplier = 2f;
 
     void Start()
     {
@@ -34,11 +39,22 @@ public class Movement : MonoBehaviour
     // Lógica para o movimento do personagem
     void HandleMovement() 
     {
-        direction = new Vector2(Input.GetAxisRaw("Horizontal"), 0f);
-        rig.MovePosition(rig.position + direction * speed * Time.fixedDeltaTime);
+        // Pega a direção horizontal
+        direction = new Vector2(Input.GetAxisRaw("Horizontal"), rig.velocity.y);
+
+        // Se o jogador estiver no chão, usa velocidade normal
+        if(!isJumping)
+        {
+            rig.velocity = new Vector2(direction.x * speed, rig.velocity.y);
+        }
+        // Se o jogador estiver no ar, diminui o controle
+        else
+        {
+            rig.velocity = new Vector2(direction.x * speed * airControlSpeed, rig.velocity.y);
+        }
 
         // Controle de animação e direção do personagem
-        if(direction.magnitude > 0f) 
+        if(direction.x != 0) 
         {
             lastDirection = direction;
             anim.SetInteger("Base", 1); // Jogador está se movendo
@@ -67,15 +83,25 @@ public class Movement : MonoBehaviour
         {
             if(!isJumping) 
             {
-                rig.AddForce(new Vector2(0f, JumpForce), ForceMode2D.Impulse);
+                rig.velocity = new Vector2(rig.velocity.x, jumpForce); // Definindo a velocidade de pulo diretamente
                 isJumping = true;
                 doubleJump = true;
             }
             else if(doubleJump)
             {
-                rig.AddForce(new Vector2(0f, JumpForce), ForceMode2D.Impulse);
+                rig.velocity = new Vector2(rig.velocity.x, jumpForce); // Permite o duplo pulo
                 doubleJump = false; // Desativa o duplo pulo
             }
+        }
+
+        // Aplicando física para um pulo mais responsivo
+        if (rig.velocity.y < 0) // Quando o personagem está caindo
+        {
+            rig.velocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.deltaTime;
+        }
+        else if (rig.velocity.y > 0 && !Input.GetButton("Jump")) // Quando o jogador pula mais baixo ao soltar o botão
+        {
+            rig.velocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.deltaTime;
         }
     }
 
